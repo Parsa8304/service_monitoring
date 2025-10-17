@@ -1,0 +1,11 @@
+{
+  "generated_at": "2025-10-01T08:10:07.899809+00:00",
+  "queries": [
+    {
+      "query": "پتروشیمی",
+      "output": "outputs_test\\پتروشیمی.json",
+      "html_cache": "cache_test\\پتروشیمی.html",
+      "count": 5
+    }
+  ]
+}
