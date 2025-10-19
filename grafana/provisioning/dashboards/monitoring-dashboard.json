@@ -1,0 +1,42 @@
+{
+  "title": "Service Health (Monitoring)",
+  "timezone": "browser",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Success Rate (5m)",
+      "targets": [
+        {
+          "expr": "sum(rate(monitor_checks_total{success=\"true\"}[5m])) / sum(rate(monitor_checks_total[5m]))",
+          "legendFormat": "overall"
+        }
+      ],
+      "options": { "reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "value" },
+      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 5 }
+    },
+    {
+      "type": "timeseries",
+      "title": "p95 Latency (ms) by Service",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(monitor_check_latency_ms_bucket[5m])) by (le, service))",
+          "legendFormat": "p95 {{service}}"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 5, "w": 24, "h": 8 }
+    },
+    {
+      "type": "stat",
+      "title": "Status by Service (last 10 checks)",
+      "targets": [
+        {
+          "expr": "sum by (service) (increase(monitor_checks_total{success=\"false\"}[10m]) == 0)",
+          "legendFormat": "{{service}}"
+        }
+      ],
+      "gridPos": { "x": 8, "y": 0, "w": 16, "h": 5 }
+    }
+  ],
+  "schemaVersion": 38,
+  "version": 1
+}

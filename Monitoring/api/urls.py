@@ -1,12 +1,13 @@
 from django.urls import path, include
-from .views import ServiceViewSet, EndpointViewSet, CheckResultViewSet
-from rest_framework import routers
+from rest_framework.routers import DefaultRouter
+from .views import ServiceViewSet, EndpointViewSet, CheckResultViewSet, RegisterServiceView
 
-router = routers.DefaultRouter()
-router.register(r'services', ServiceViewSet, basename='service')
-router.register(r'endpoints', EndpointViewSet, basename='endpoint')
-router.register(r'checkresults', CheckResultViewSet, basename='checkresult')
+router = DefaultRouter()
+router.register(r"services", ServiceViewSet, basename="service")
+router.register(r"endpoints", EndpointViewSet, basename="endpoint")
+router.register(r"results", CheckResultViewSet, basename="result")
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path("", include(router.urls)),
+    path("register/", RegisterServiceView.as_view(), name="register-service"),
 ]

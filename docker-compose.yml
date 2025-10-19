@@ -1,58 +1,11 @@
-version: '3.9'
+version: "3.9"
 
 services:
-  khabarfarsi:
-    build: ./KhabarFarsi_API
-    container_name: khabarfarsi
-    working_dir: /app
-    volumes:
-      - ./KhabarFarsi_API:/app
-    # Choose the right command depending on your tech:
-    # For FastAPI / Uvicorn:
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-    # For Node.js:
-    # command: npx nodemon --watch . server.js
-    environment:
-      - SERVICE_NAME=khabarfarsi
-      - ENVIRONMENT=dev
-      - WATCHFILES_FORCE_POLLING=1
-      - CHOKIDAR_USEPOLLING=1
-    ports:
-      - "9001:8000"
-    networks: [stack]
 
-  producthunt:
-    build: ./ProductHunt_API
-    container_name: producthunt
-    working_dir: /app
-    volumes:
-      - ./ProductHunt_API:/app
-    # command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-    # command: npx nodemon --watch . server.js
-    environment:
-      - SERVICE_NAME=producthunt
-      - ENVIRONMENT=dev
-      - WATCHFILES_FORCE_POLLING=1
-      - CHOKIDAR_USEPOLLING=1
-    ports:
-      - "9002:8000"
-    networks: [stack]
-
-  twitter:
-    build: ./Twitter_API
-    container_name: twitter
-    working_dir: /app
-    volumes:
-      - ./Twitter_API:/app
-    # command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-    # command: npx nodemon --watch . server.js
-    environment:
-      - SERVICE_NAME=twitter    # fixed typo
-      - ENVIRONMENT=dev
-      - WATCHFILES_FORCE_POLLING=1
-      - CHOKIDAR_USEPOLLING=1
-    ports:
-      - "9003:8000"
+  # ---------- infra ----------
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
     networks: [stack]
 
   prometheus:
@@ -63,23 +16,170 @@ services:
       - ./prometheus/rules.yml:/etc/prometheus/rules.yml:ro
     ports:
       - "9090:9090"
+    restart: unless-stopped
     networks: [stack]
 
+  # ---------- monitoring core (Django + DRF) ----------
   monitoring:
     build: ./Monitoring
     container_name: monitoring
     working_dir: /app
     volumes:
       - ./Monitoring:/app
-    # command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     environment:
-      - PROMETHEUS_URL=http://prometheus:9090
-      - WATCHFILES_FORCE_POLLING=1
+      # Celery / Redis
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      # Observability
+      PROMETHEUS_URL: http://prometheus:9090
+      # Django
+      DJANGO_SETTINGS_MODULE: monitoring_api.settings
+      DJANGO_DEBUG: "1"
+    command: >
+      bash -lc "
+      python manage.py migrate --noinput &&
+      gunicorn monitoring_api.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 60
+      "
+    depends_on:
+      - redis
+      - prometheus
     ports:
       - "9100:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    networks: [stack]
+
+  celery-worker:
+    build: ./Monitoring
+    container_name: monitoring_worker
+    working_dir: /app
+    volumes:
+      - ./Monitoring:/app
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      DJANGO_SETTINGS_MODULE: monitoring_api.settings
+    command: celery -A monitoring_api worker -l info
+    depends_on:
+      - monitoring
+      - redis
+    restart: unless-stopped
+    networks: [stack]
+
+  celery-beat:
+    build: ./Monitoring
+    container_name: monitoring_beat
+    working_dir: /app
+    volumes:
+      - ./Monitoring:/app
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      DJANGO_SETTINGS_MODULE: monitoring_api.settings
+    command: celery -A monitoring_api beat -l info
+    depends_on:
+      - monitoring
+      - redis
+    restart: unless-stopped
+    networks: [stack]
+
+  # ---------- your services (auto-register on startup) ----------
+  khabarfarsi:
+    build: ./KhabarFarsi_API
+    container_name: khabarfarsi
+    working_dir: /app
+    volumes:
+      - ./KhabarFarsi_API:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      - SERVICE_NAME=khabarfarsi
+      - SERVICE_BASE_URL=http://khabarfarsi:8000
+      - MONITOR_URL=http://monitoring:8000/api/register/
+      - MONITOR_REGISTRATION_TOKEN=qwertyuiopasdfghjklzxcvbnm123456
+      - ENVIRONMENT=dev
+      - WATCHFILES_FORCE_POLLING=1
+      - CHOKIDAR_USEPOLLING=1
+    ports:
+      - "9001:8000"
+    depends_on: [monitoring]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks: [stack]
+
+  producthunt:
+    build: ./ProductHunt_API
+    container_name: producthunt
+    working_dir: /app
+    volumes:
+      - ./ProductHunt_API:/app
+    # command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      - SERVICE_NAME=producthunt
+      - SERVICE_BASE_URL=http://producthunt:8000
+      - MONITOR_URL=http://monitoring:8000/api/register/
+      - MONITOR_REGISTRATION_TOKEN=qwertyuiopasdfghjklzxcvbnm123456
+      - ENVIRONMENT=dev
+      - WATCHFILES_FORCE_POLLING=1
+      - CHOKIDAR_USEPOLLING=1
+    ports:
+      - "9002:8000"
+    depends_on: [monitoring]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks: [stack]
+
+  twitter:
+    build: ./Twitter_API
+    container_name: twitter
+    working_dir: /app
+    volumes:
+      - ./Twitter_API:/app
+    # command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      - SERVICE_NAME=twitter
+      - SERVICE_BASE_URL=http://twitter:8000
+      - MONITOR_URL=http://monitoring:8000/api/register/
+      - MONITOR_REGISTRATION_TOKEN=qwertyuiopasdfghjklzxcvbnm123456
+      - ENVIRONMENT=dev
+      - WATCHFILES_FORCE_POLLING=1
+      - CHOKIDAR_USEPOLLING=1
+    ports:
+      - "9003:8000"
+    depends_on: [monitoring]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks: [stack]
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
     depends_on:
       - prometheus
     networks: [stack]
+    restart: unless-stopped
 
 networks:
   stack:

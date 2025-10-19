@@ -3,3 +3,6 @@ djangorestframework
 drf_restwind
 gunicorn
 requests
+httpx
+celery[redis]
+prometheus-client
