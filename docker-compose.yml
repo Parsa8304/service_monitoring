@@ -22,7 +22,7 @@ services:
   # ---------- monitoring core (Django + DRF) ----------
   monitoring:
     build: ./Monitoring
-    container_name: monitoring
+    # container_name: monitoring
     working_dir: /app
     volumes:
       - ./Monitoring:/app
@@ -51,7 +51,10 @@ services:
       interval: 30s
       timeout: 5s
       retries: 5
-    networks: [stack]
+    networks:
+      stack:
+        aliases:
+          - monitoring  
 
   celery-worker:
     build: ./Monitoring

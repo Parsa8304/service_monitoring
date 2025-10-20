@@ -6,6 +6,7 @@ from api.metrics_view import metrics
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),
-    path('metrics/', metrics, name='metrics'),
+    path('metrics/', metrics,),
+    path('metrics', metrics,),  # <-- added to handle missing trailing slash
 
 ]

@@ -5,4 +5,4 @@ gunicorn
 requests
 httpx
 celery[redis]
-prometheus-client
+prometheus-client>=0.20
