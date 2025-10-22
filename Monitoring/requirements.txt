@@ -6,3 +6,6 @@ requests
 httpx
 celery[redis]
 prometheus-client>=0.20
+whitenoise
+drf-spectacular
+drf-yasg
