@@ -2,7 +2,6 @@ version: "3.9"
 
 services:
 
-  # ---------- infra ----------
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -19,21 +18,20 @@ services:
     restart: unless-stopped
     networks: [stack]
 
-  # ---------- monitoring core (Django + DRF) ----------
+
   monitoring:
     build: ./Monitoring
     working_dir: /app
     volumes:
       - ./Monitoring:/app
-      - prom_multiproc:/var/run/prometheus   # <- shared dir for multiprocess metrics
+      - prom_multiproc:/var/run/prometheus   
     environment:
-      # Celery / Redis
+
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
-      # Observability
+
       PROMETHEUS_URL: http://prometheus:9090
-      PROMETHEUS_MULTIPROC_DIR: /var/run/prometheus   # <- important
-      # Django
+      PROMETHEUS_MULTIPROC_DIR: /var/run/prometheus  
       DJANGO_SETTINGS_MODULE: monitoring_api.settings
       DJANGO_DEBUG: "1"
     command: >
@@ -49,7 +47,7 @@ services:
       - "9100:8000"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8000/api/"]   # wget exists in python image; curl may not
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/api/"]   
       interval: 30s
       timeout: 5s
       retries: 5
@@ -64,12 +62,12 @@ services:
     working_dir: /app
     volumes:
       - ./Monitoring:/app
-      - prom_multiproc:/var/run/prometheus   # <- shared dir
+      - prom_multiproc:/var/run/prometheus  
     environment:
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
       DJANGO_SETTINGS_MODULE: monitoring_api.settings
-      PROMETHEUS_MULTIPROC_DIR: /var/run/prometheus   # <- important
+      PROMETHEUS_MULTIPROC_DIR: /var/run/prometheus  
     command: >
       bash -lc "
       celery -A monitoring_api worker -l info
@@ -86,12 +84,12 @@ services:
     working_dir: /app
     volumes:
       - ./Monitoring:/app
-      - prom_multiproc:/var/run/prometheus   # <- shared dir
+      - prom_multiproc:/var/run/prometheus   
     environment:
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
       DJANGO_SETTINGS_MODULE: monitoring_api.settings
-      PROMETHEUS_MULTIPROC_DIR: /var/run/prometheus   # <- important
+      PROMETHEUS_MULTIPROC_DIR: /var/run/prometheus  
     command: >
       bash -lc "celery -A monitoring_api beat -l info"
       
@@ -101,7 +99,6 @@ services:
     restart: unless-stopped
     networks: [stack]
 
-  # ---------- your services (auto-register on startup) ----------
   khabarfarsi:
     build: ./KhabarFarsi_API
     container_name: khabarfarsi

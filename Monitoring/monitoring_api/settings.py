@@ -133,15 +133,14 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "My API",
     "DESCRIPTION": "Public API for my service.",
     "VERSION": "1.0.0",
-    # Optional nice-to-haves
-    "SERVE_INCLUDE_SCHEMA": False,  # we’ll serve Redoc/Swagger without embedding the JSON
+    "SERVE_INCLUDE_SCHEMA": False,  
     "CONTACT": {"name": "API Support", "email": "support@example.com"},
     "LICENSE": {"name": "MIT"},
 }
-# Beat schedule: run the due checks periodically
+
 CELERY_BEAT_SCHEDULE = {
     "run-health-checks-every-15s": {
         "task": "api.run_due_checks",
-        "schedule": 15.0,   # seconds
+        "schedule": 15.0,   
     },
 }

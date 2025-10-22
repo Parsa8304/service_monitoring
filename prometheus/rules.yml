@@ -1,7 +1,6 @@
 groups:
 - name: app-http
   rules:
-  # Canonical counter: requests by instance+status (works for Django OR FastAPI)
   - record: app_http_requests_total
     expr: |
       # Django responses counter
@@ -14,7 +13,7 @@ groups:
         rate(http_requests_total[1m])
       )
 
-  # Canonical latency histogram buckets by instance+le
+
   - record: app_http_request_duration_seconds_bucket
     expr: |
       # Django latency histogram

@@ -15,9 +15,9 @@ log = logging.getLogger(__name__)
 
 # Tunables
 MAX_CONCURRENCY = 20
-RETRY_COUNT = 1                 # one retry after a short backoff
-BACKOFF_BASE_S = 0.2            # base backoff between retries
-SCHED_JITTER_S = 0.5            # small jitter when scheduling next_run_at to avoid herding
+RETRY_COUNT = 1                 
+BACKOFF_BASE_S = 0.2           
+SCHED_JITTER_S = 0.5        
 
 
 def _now_ms() -> int:
@@ -35,7 +35,6 @@ async def _probe(client: httpx.AsyncClient, ep: Endpoint):
     """
     start = _now_ms()
     try:
-        # Normalize/guard inputs per attempt
         method = (ep.method or "GET").upper()
         timeout_s = max(0.001, (ep.timeout_ms or 5000) / 1000.0)
 
@@ -61,7 +60,6 @@ async def _probe_with_retry(client: httpx.AsyncClient, ep: Endpoint):
     if not ok and RETRY_COUNT > 0:
         await asyncio.sleep(BACKOFF_BASE_S + random.random() * 0.3)
         ok2, code2, rtt2, details2 = await _probe(client, ep)
-        # Prefer the second attempt’s data; fall back to the first where missing
         ok, code, rtt, details = ok2, (code2 or code), (rtt2 or rtt), (details2 or details)
     return ok, code, rtt, details
 

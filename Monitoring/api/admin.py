@@ -1,9 +1,10 @@
 # api/admin.py
 from django.contrib import admin, messages
 from django.utils import timezone
-from django.db.models import Q, Count
+from django.db.models import Count
 
 from .models import Service, Endpoint, CheckResult
+
 
 # ---------- Inline for Endpoints on the Service page ----------
 class EndpointInline(admin.TabularInline):
@@ -17,21 +18,25 @@ class EndpointInline(admin.TabularInline):
     readonly_fields = ("next_run_at",)
     show_change_link = True
 
+
 # ---------- Actions for Endpoints ----------
 @admin.action(description="Enable selected endpoints")
 def enable_endpoints(modeladmin, request, queryset):
     updated = queryset.update(enabled=True)
     messages.success(request, f"Enabled {updated} endpoint(s).")
 
+
 @admin.action(description="Disable selected endpoints")
 def disable_endpoints(modeladmin, request, queryset):
     updated = queryset.update(enabled=False)
     messages.success(request, f"Disabled {updated} endpoint(s).")
 
+
 @admin.action(description="Schedule run now (set next_run_at = now)")
 def schedule_run_now(modeladmin, request, queryset):
     updated = queryset.update(next_run_at=timezone.now())
     messages.info(request, f"Scheduled {updated} endpoint(s) to run now.")
+
 
 # ---------- Endpoint Admin ----------
 @admin.register(Endpoint)
@@ -52,6 +57,7 @@ class EndpointAdmin(admin.ModelAdmin):
         return (obj.url[:80] + "…") if len(obj.url) > 80 else obj.url
     short_url.short_description = "URL"
 
+
 # ---------- Service Admin ----------
 @admin.register(Service)
 class ServiceAdmin(admin.ModelAdmin):
@@ -63,14 +69,12 @@ class ServiceAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        return qs.annotate(_ep_count=Count("endpoint"))  # related_name is 'endpoint' in your model
-        # If you change related_name to "endpoints", use Count("endpoints")
+        return qs.annotate(_ep_count=Count("endpoint")) 
 
     def endpoints_count(self, obj):
         return getattr(obj, "_ep_count", 0)
     endpoints_count.short_description = "Endpoints"
 
-    # Admin action: recompute status from recent results
     @admin.action(description="Recompute service status from last 10 results")
     def recompute_status(self, request, queryset):
         for svc in queryset:
@@ -83,6 +87,7 @@ class ServiceAdmin(admin.ModelAdmin):
         messages.success(request, f"Recomputed status for {queryset.count()} service(s).")
 
     actions = ["recompute_status"]
+
 
 # ---------- CheckResult Admin ----------
 @admin.register(CheckResult)

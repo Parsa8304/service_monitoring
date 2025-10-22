@@ -7,7 +7,7 @@ class Service(models.Model):
     url = models.URLField()
     status = models.CharField(max_length=50, blank=True, null=True)
     last_checked = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         indexes = [
             models.Index(fields=['name']),
@@ -38,7 +38,7 @@ class Endpoint(models.Model):
     headers = models.JSONField(blank=True, null=True)
     enabled = models.BooleanField(default=True)
     next_run_at = models.DateTimeField(blank=True, null=True)
-    
+
     class Meta:
         unique_together = ('service', 'url', 'method')
         indexes = [
@@ -61,7 +61,7 @@ class CheckResult(models.Model):
     response_time_ms = models.IntegerField()
     success = models.BooleanField()
     details = models.TextField(blank=True, null=True)
-    
+
     class Meta:
         indexes = [
             models.Index(fields=['endpoint', '-timestamp']),

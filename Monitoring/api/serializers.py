@@ -21,10 +21,8 @@ def validate_docker_url(value: str) -> str:
     host = p.hostname or ""
     if host == "localhost":
         return v
-    # allow single-label docker hostnames like "twitter" or "khabarfarsi-api"
     if DOCKER_HOST_RE.fullmatch(host):
         return v
-    # allow IPs
     try:
         import ipaddress
         ipaddress.ip_address(host)
@@ -37,7 +35,6 @@ def validate_docker_url(value: str) -> str:
 
 
 class ServiceSerializer(serializers.ModelSerializer):
-    # Override the model field so we can plug in our relaxed validator
     url = serializers.CharField(validators=[validate_docker_url])
 
     class Meta:
@@ -46,18 +43,15 @@ class ServiceSerializer(serializers.ModelSerializer):
         read_only_fields = ['status', 'last_checked']
 
     def validate(self, data):
-        # Normalize URL (remove trailing slash to keep consistency)
         data['url'] = data['url'].strip().rstrip('/')
         return data
-    # IMPORTANT: no HTTP requests here. Health/probing happens in Celery or dedicated actions.
+
 
 
 class EndpointSerializer(serializers.ModelSerializer):
-    # Allow docker-friendly URLs here too
     url = serializers.CharField(validators=[validate_docker_url])
 
-    # Keep methods constrained; adjust if you added choices on the model
-    VALID_METHODS = {'GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS'}
+    VALID_METHODS = {'GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'}
 
     class Meta:
         model = Endpoint
@@ -72,7 +66,6 @@ class EndpointSerializer(serializers.ModelSerializer):
         }
 
     def validate(self, data):
-        # Normalize URL and method
         url = (data.get('url') or '').strip().rstrip('/')
         method = (data.get('method') or 'GET').upper()
 
