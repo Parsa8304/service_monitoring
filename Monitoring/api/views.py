@@ -11,6 +11,7 @@ from .serializers import ServiceSerializer, EndpointSerializer, CheckResultSeria
 
 REG_TOKEN = os.getenv("MONITOR_REGISTRATION_TOKEN", "change-me")
 
+
 class ServiceViewSet(viewsets.ModelViewSet):
     queryset = Service.objects.all()
     serializer_class = ServiceSerializer
@@ -20,8 +21,9 @@ class ServiceViewSet(viewsets.ModelViewSet):
         svc = self.get_object()
         return Response({
             "service": ServiceSerializer(svc).data,
-            "endpoints": EndpointSerializer(svc.endpoints.all(), many=True).data,
+            "endpoints": EndpointSerializer(svc.endpoint.all(), many=True).data,
         })
+
 
 class EndpointViewSet(viewsets.ModelViewSet):
     queryset = Endpoint.objects.select_related("service").all()
@@ -40,13 +42,15 @@ class EndpointViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({"error": str(e)}, status=424)
 
+
 class CheckResultViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = CheckResult.objects.select_related("endpoint", "endpoint__service").all()
     serializer_class = CheckResultSerializer
     ordering = ["-timestamp"]
 
+
 class RegisterServiceView(APIView):
-    permission_classes = [AllowAny]  # protected by shared token
+    permission_classes = [AllowAny]
 
     def post(self, request, *args, **kwargs):
         token = request.headers.get("X-Registration-Token") or request.data.get("token")
@@ -68,7 +72,11 @@ class RegisterServiceView(APIView):
             service=svc,
             url=default_url,
             method="GET",
-            defaults={"expected_status": 200, "timeout_ms": 3000, "interval_sec": 60, "enabled": True},
+            defaults={
+                "expected_status": 200,
+                "timeout_ms": 3000,
+                "interval_sec": 60,
+                "enabled": True},
         )
 
         return Response({"detail": "registered", "service_id": svc.id})

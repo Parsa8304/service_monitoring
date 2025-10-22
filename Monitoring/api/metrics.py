@@ -1,20 +1,16 @@
-from prometheus_client import Counter, Histogram, CONTENT_TYPE_LATEST, generate_latest
-
+from prometheus_client import Counter, Histogram
 
 check_total = Counter(
-    "monitor_checks_total",
-    "Health checks by outcome",
-    labelnames=["service", "endpoint_id", "method", "success"],
+    "monitor_checks_total", "Total number of checks",
+    ["service", "endpoint_id", "method", "success"]
 )
 
 latency_ms = Histogram(
-    "monitor_check_latency_ms",
-    "Health check latency (ms)",
-    labelnames=["service", "endpoint_id", "method"],
-    # Good default buckets (in ms). Tweak to your SLOs.
-    buckets=(10, 25, 50, 100, 200, 400, 800, 1600, 3200, 6400)
+    "monitor_check_latency_ms", "Latency of checks in ms",
+    ["service", "endpoint_id", "method"]
 )
 
-def metrics_http_response():
-    # Returns raw metrics payload + content type
-    return generate_latest(), CONTENT_TYPE_LATEST
+response_status = Counter(
+    "monitor_check_response_status", "Response status codes from checks",
+    ["service", "endpoint_id", "method", "status_code"]
+)

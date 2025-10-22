@@ -9,7 +9,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from .models import Endpoint, CheckResult, Service
-from .metrics import check_total, latency_ms
+from .metrics import check_total, latency_ms, response_status
 
 log = logging.getLogger(__name__)
 
@@ -111,9 +111,10 @@ def run_due_checks() -> int:
 
         for ep, (ok, code, rtt, details) in zip(due, results):
             # Prometheus metrics
-            labels = _labels_for(ep)
+            labels = {"service": ep.service.name, "endpoint_id": str(ep.id), "method": ep.method}
             check_total.labels(**labels, success="true" if ok else "false").inc()
             latency_ms.labels(**labels).observe(float(rtt))
+            response_status.labels(**labels, status_code=str(code or 0)).inc()
 
             # DB row
             CheckResult.objects.create(
@@ -124,7 +125,7 @@ def run_due_checks() -> int:
                 details=(details[:2000] if details else None),
             )
 
-            # Schedule next run with a touch of jitter
+            # Schedule next run (with jitter)
             next_run = timezone.now() + timezone.timedelta(seconds=max(1, ep.interval_sec or 60))
             if SCHED_JITTER_S:
                 next_run += timezone.timedelta(seconds=random.uniform(0, SCHED_JITTER_S))
@@ -132,6 +133,7 @@ def run_due_checks() -> int:
             ep.save(update_fields=["next_run_at"])
 
             touched_service_ids.add(ep.service_id)
+
 
         # ---- 4) Update service statuses (simple rule over last N checks)
         for sid in touched_service_ids:

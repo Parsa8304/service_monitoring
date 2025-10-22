@@ -22,21 +22,23 @@ services:
   # ---------- monitoring core (Django + DRF) ----------
   monitoring:
     build: ./Monitoring
-    # container_name: monitoring
     working_dir: /app
     volumes:
       - ./Monitoring:/app
+      - prom_multiproc:/var/run/prometheus   # <- shared dir for multiprocess metrics
     environment:
       # Celery / Redis
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
       # Observability
       PROMETHEUS_URL: http://prometheus:9090
+      PROMETHEUS_MULTIPROC_DIR: /var/run/prometheus   # <- important
       # Django
       DJANGO_SETTINGS_MODULE: monitoring_api.settings
       DJANGO_DEBUG: "1"
     command: >
       bash -lc "
+      rm -rf /var/run/prometheus/* || true &&
       python manage.py migrate --noinput &&
       gunicorn monitoring_api.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 60
       "
@@ -47,14 +49,14 @@ services:
       - "9100:8000"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/api/"]   # wget exists in python image; curl may not
       interval: 30s
       timeout: 5s
       retries: 5
     networks:
       stack:
         aliases:
-          - monitoring  
+          - monitoring
 
   celery-worker:
     build: ./Monitoring
@@ -62,11 +64,16 @@ services:
     working_dir: /app
     volumes:
       - ./Monitoring:/app
+      - prom_multiproc:/var/run/prometheus   # <- shared dir
     environment:
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
       DJANGO_SETTINGS_MODULE: monitoring_api.settings
-    command: celery -A monitoring_api worker -l info
+      PROMETHEUS_MULTIPROC_DIR: /var/run/prometheus   # <- important
+    command: >
+      bash -lc "
+      celery -A monitoring_api worker -l info
+      "
     depends_on:
       - monitoring
       - redis
@@ -79,11 +86,15 @@ services:
     working_dir: /app
     volumes:
       - ./Monitoring:/app
+      - prom_multiproc:/var/run/prometheus   # <- shared dir
     environment:
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
       DJANGO_SETTINGS_MODULE: monitoring_api.settings
-    command: celery -A monitoring_api beat -l info
+      PROMETHEUS_MULTIPROC_DIR: /var/run/prometheus   # <- important
+    command: >
+      bash -lc "celery -A monitoring_api beat -l info"
+      
     depends_on:
       - monitoring
       - redis
@@ -111,7 +122,7 @@ services:
     depends_on: [monitoring]
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -123,7 +134,6 @@ services:
     working_dir: /app
     volumes:
       - ./ProductHunt_API:/app
-    # command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     environment:
       - SERVICE_NAME=producthunt
       - SERVICE_BASE_URL=http://producthunt:8000
@@ -137,7 +147,7 @@ services:
     depends_on: [monitoring]
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -149,7 +159,6 @@ services:
     working_dir: /app
     volumes:
       - ./Twitter_API:/app
-    # command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     environment:
       - SERVICE_NAME=twitter
       - SERVICE_BASE_URL=http://twitter:8000
@@ -163,7 +172,7 @@ services:
     depends_on: [monitoring]
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -187,3 +196,6 @@ services:
 networks:
   stack:
     driver: bridge
+
+volumes:
+  prom_multiproc:

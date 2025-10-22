@@ -2,11 +2,12 @@
 from rest_framework import serializers
 from urllib.parse import urlparse
 import re
-from django.utils import timezone  # only used for read-only fields on the model
+from django.utils import timezone
 from .models import Service, Endpoint, CheckResult
 
-# Accept single-label Docker service names (letters/digits/hyphens)
+
 DOCKER_HOST_RE = re.compile(r'^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$')
+
 
 def validate_docker_url(value: str) -> str:
     """

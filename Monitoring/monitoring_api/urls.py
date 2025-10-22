@@ -7,6 +7,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),
     path('metrics/', metrics,),
-    path('metrics', metrics,),  # <-- added to handle missing trailing slash
+    path('metrics', metrics,),
 
 ]
